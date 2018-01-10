@@ -51,6 +51,10 @@ public class S3UploadMojo extends AbstractMojo
   @Parameter(property = "s3-upload.destination")
   private String destination;
 
+  /** Make uploaded content public. */
+  @Parameter(property = "s3-upload.makePublic", defaultValue = "false")
+  private boolean makePublic;
+ 
   /** Force override of endpoint for S3 regions such as EU. */
   @Parameter(property = "s3-upload.endpoint")
   private String endpoint;
@@ -120,9 +124,12 @@ public class S3UploadMojo extends AbstractMojo
     TransferManager mgr = new TransferManager(s3);
 
     Transfer transfer;
+
+    final CannedAccessControlList acl = makePublic?CannedAccessControlList.PublicRead:CannedAccessControlList.BucketOwnerFullControl;
+    
     if (sourceFile.isFile()) {
       transfer = mgr.upload(new PutObjectRequest(bucketName, destination, sourceFile)
-              .withCannedAcl(CannedAccessControlList.BucketOwnerFullControl));
+              .withCannedAcl(acl));
     } else if (sourceFile.isDirectory()) {
       transfer = mgr.uploadDirectory(bucketName, destination, sourceFile, recursive,
               new ObjectMetadataProvider() {
@@ -132,7 +139,7 @@ public class S3UploadMojo extends AbstractMojo
                    * This is a terrible hack, but the SDK as of 1.10.69 does not allow setting ACLs
                    * for directory uploads otherwise.
                    */
-                  objectMetadata.setHeader(Headers.S3_CANNED_ACL, CannedAccessControlList.BucketOwnerFullControl);
+                  objectMetadata.setHeader(Headers.S3_CANNED_ACL, acl);
                 }
               });
     } else {
